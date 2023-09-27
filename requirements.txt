@@ -1,0 +1,9 @@
+coloredlogs==15.0.1
+connect4==0.0.3
+Flask==2.3.3
+ipython==8.13.2
+numpy==1.24.3
+pygame==2.5.1
+tensorflow==2.13.0
+torch==2.0.1
+tqdm==4.65.0
