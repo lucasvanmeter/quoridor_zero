@@ -3,3 +3,6 @@
 Testing.ipynb
 /__pycache__
 /.ipynb_checkpoints
+/quoridor/__pycache__
+/quoridor/pytorch/__pycache__
+/quoridor/pytorch/.ipynb_checkpoints
