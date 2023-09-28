@@ -26,10 +26,6 @@ class MCTS():
 
         self.Es = {}  # stores game.getGameEnded ended for board s
         self.Vs = {}  # stores game.getValidMoves for board s
-
-        self.Rs = defaultdict(lambda: [])  # stores temporary valid actions from states we have
-                      # visited during a single search down to a leaf. actions 
-                      # removed after being taken to avoid infinite recursion.
         self.Qs = {}  # stores values for s (as used in naive MCTS)
 
     def getActionProb(self, canonicalBoard, temp=1):
@@ -41,26 +37,31 @@ class MCTS():
             probs: a policy vector where the probability of the ith action is
                    proportional to Nsa[(s,a)]**(1./temp)
         """
-        for i in range(self.args.numMCTSSims):
-            self.Rs = defaultdict(lambda: [])    # reset recursion safegaurds for the search.
-            self.search(canonicalBoard)
+        if canonicalBoard[0] == 0 and canonicalBoard[1] == 0:
+            probs = [0]*(81+64+64)
+            action = self.game.getBestMove(canonicalBoard, 1)
+            probs[action] = 1
+            return probs
+        else:
+            for i in range(self.args.numMCTSSims):
+                self.search(canonicalBoard, 0)
 
-        s = self.game.stringRepresentation(canonicalBoard)
-        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(self.game.getActionSize())]
+            s = self.game.stringRepresentation(canonicalBoard)
+            counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(self.game.getActionSize())]
 
-        if temp == 0:
-            bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten()
-            bestA = np.random.choice(bestAs)
-            probs = [0] * len(counts)
-            probs[bestA] = 1
+            if temp == 0:
+                bestAs = np.array(np.argwhere(counts == np.max(counts))).flatten()
+                bestA = np.random.choice(bestAs)
+                probs = [0] * len(counts)
+                probs[bestA] = 1
+                return probs
+
+            counts = [x ** (1. / temp) for x in counts]
+            counts_sum = float(sum(counts))
+            probs = [x / counts_sum for x in counts]
             return probs
 
-        counts = [x ** (1. / temp) for x in counts]
-        counts_sum = float(sum(counts))
-        probs = [x / counts_sum for x in counts]
-        return probs
-
-    def search(self, canonicalBoard):
+    def search(self, canonicalBoard, itr):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -79,7 +80,7 @@ class MCTS():
         Returns:
             v: the negative of the value of the current canonicalBoard
         """
-
+        
         s = self.game.stringRepresentation(canonicalBoard)
 
         if s not in self.Es:
@@ -113,25 +114,30 @@ class MCTS():
         cur_best = -float('inf')
         best_act = -1
 
-        # pick the action with the highest upper confidence bound
-        for a in range(self.game.getActionSize()):
-            if valids[a] and a not in self.Rs[s]:
-                if (s, a) in self.Qsa:
-                    u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
-                            1 + self.Nsa[(s, a)])
-                else:
-                    u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
+        # pick the action with the highest upper confidence bound or pick the action that moves closest if too many iterations.
+        if itr <= 500:
+            for a in range(self.game.getActionSize()):
+                if valids[a]:
+                    if (s, a) in self.Qsa:
+                        u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
+                                1 + self.Nsa[(s, a)])
+                    else:
+                        u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
 
-                if u > cur_best:
-                    cur_best = u
-                    best_act = a
-
+                    if u > cur_best:
+                        cur_best = u
+                        best_act = a
+        else:
+            best_act = self.game.getBestMove(canonicalBoard, 1)
+            print('hit max depth of search')
+        
+        itr += 1
+        
         a = best_act
-        self.Rs[s] += [a]
         next_s, next_player = self.game.getNextState(canonicalBoard, 1, a)
         next_s = self.game.getCanonicalForm(next_s, next_player)
 
-        v = self.search(next_s)
+        v = self.search(next_s, itr)
 
         if (s, a) in self.Qsa:
             self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)

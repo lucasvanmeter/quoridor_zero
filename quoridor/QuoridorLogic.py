@@ -390,7 +390,32 @@ class Board():
                     queue.append(new_path)
                 explored.append(node)
         return False
-        
+    
+    def pawnsTouching(self):
+        x1, y1 = self.p1pos
+        x2, y2 = self.p2pos
+        return (x1 == x2 and (y1 == y2-1 or y1 == y2+1)) or (y1 == y2 and (x1 == x2-1 or x1 == x2+1))
+    
+    def bestMove(self, player):
+        if not self.pawnsTouching():
+            path = self.getShortestPath(player)
+            if not path:
+                self.displayBoard()
+                print("No path!")
+            x,y = path[1]
+            return 9*x+y
+        else:
+            best_move = (-1,-1)
+            best_dist = 1000
+            for x,y in self.validPawnMoves(player):
+                tempboard = Board(self.vec)
+                tempboard.movePawn(x,y, player)
+                temp = tempboard.getShortestPath(player)
+                if len(temp) < best_dist:
+                    best_dist = len(temp)
+                    best_move = temp[0]
+                x,y = best_move
+            return 9*x+y
     
     def placeWall(self,x,y,orientation):
         """
@@ -461,14 +486,15 @@ class Board():
         """
         returns 1 if player 1 has won, -1 if player 2 has won, and 0 if neither has won.
         """
-        if self.p1walls == 0 and self.p2walls == 0:
-            a = len(self.getShortestPath(1))
-            b = len(self.getShortestPath(-1))
-            if b - a + 0.5*currentPlayer > 0:
-                return 1
-            else:
-                return -1
-        elif self.p1pos[1] == 8:
+#         if self.p1walls == 0 and self.p2walls == 0:
+#             # play the game out taking shortest moves???
+#             a = len(self.getShortestPath(1))
+#             b = len(self.getShortestPath(-1))
+#             if b - a + 0.5*currentPlayer > 0:
+#                 return 1
+#             else:
+#                 return -1
+        if self.p1pos[1] == 8:
             return 1
         elif self.p2pos[1] == 0:
             return -1

@@ -69,6 +69,10 @@ class QuoridorGame(Game):
         """
         b = Board(board)
         return b.validActions(player)
+    
+    def getBestMove(self, board, player):
+        b = Board(board)
+        return b.bestMove(player)
 
     def getGameEnded(self, board, player):
         """

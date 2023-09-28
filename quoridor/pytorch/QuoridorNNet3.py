@@ -15,6 +15,13 @@ def conv_block(ni, nf, kernel = 3, stride= 1, padding=0):
             nn.ReLU()
     )
 
+def linear_block(ni, nf, kernel = 3, stride= 1, padding=0):
+    return nn.Sequential(
+            nn.Linear(ni, nf),
+            nn.BatchNorm1d(nf),
+            nn.ReLU()
+    )
+
 class QuoridorNNet(nn.Module):
     """
     Input: 
@@ -32,17 +39,15 @@ class QuoridorNNet(nn.Module):
         self.stem2 = conv_block(args.num_channels, args.num_channels, padding=1)
         self.conv1 = conv_block(args.num_channels, args.num_channels)
         self.conv2 = conv_block(args.num_channels, args.num_channels)
+        self.conv3 = conv_block(args.num_channels, args.num_channels)
+        self.conv4 = conv_block(args.num_channels, args.num_channels)
 
-        self.fc1 = nn.Linear(2+args.num_channels*(self.board_x-4)*(self.board_y-4), 1024)
-        self.fc_bn1 = nn.BatchNorm1d(1024)
+        self.pi_head1 = linear_block(args.num_channels, args.num_channels)
+        self.pi_head2 = linear_block(args.num_channels, self.action_size)
 
-        self.fc2 = nn.Linear(1024, 512)
-        self.fc_bn2 = nn.BatchNorm1d(512)
-
-        self.fc3 = nn.Linear(512, self.action_size)
-
-        self.fc4 = nn.Linear(512, 1)
-
+        self.v_head1 = linear_block(args.num_channels, args.num_channels)
+        self.v_head2 = linear_block(args.num_channels, 1)
+        
     def forward(self, src):
         """
         Arguments:
@@ -59,12 +64,14 @@ class QuoridorNNet(nn.Module):
         s = self.stem2(s)                                            # batch_size x num_channels x 9 x 9
         s = self.conv1(s)                                            # batch_size x num_channels x 7 x 7
         s = self.conv2(s)                                            # batch_size x num_channels x 5 x 5
-        s = s.view(-1, self.args.num_channels*(self.board_x-4)*(self.board_y-4))
-        s = torch.cat((sRemWalls, s), dim=1)  
-        s = F.dropout(F.relu(self.fc_bn1(self.fc1(s))), p=self.args.dropout, training=self.training)  # batch_size x 1024
-        s = F.dropout(F.relu(self.fc_bn2(self.fc2(s))), p=self.args.dropout, training=self.training)  # batch_size x 512
+        s = self.conv3(s)                                            # batch_size x num_channels x 3 x 3
+        s = self.conv4(s)                                            # batch_size x num_channels x 1 x 1
+        s = s.view(-1, self.args.num_channels)                       # batch_size x num_channels
 
-        pi = self.fc3(s)                                                                         # batch_size x action_size
-        v = self.fc4(s)                                                                          # batch_size x 1
+        pi = F.dropout(self.pi_head1(s), p=self.args.dropout, training=self.training)  # batch_size x num_channels
+        pi = F.dropout(self.pi_head2(pi), p=self.args.dropout, training=self.training)  # batch_size x action_size
+        
+        v = F.dropout(self.v_head1(s), p=self.args.dropout, training=self.training)  # batch_size x num_channels
+        v = F.dropout(self.v_head2(v), p=self.args.dropout, training=self.training)  # batch_size x 1
 
         return F.log_softmax(pi, dim=1), torch.tanh(v)

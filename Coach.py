@@ -15,7 +15,6 @@ from quoridor.NaiveMCTS import QuoridorBoard
 
 log = logging.getLogger(__name__)
 
-
 class Coach():
     """
     This class executes the self-play + learning. It uses the functions defined
@@ -61,7 +60,11 @@ class Coach():
 #             pi = self.naivemcts.getActionProb(QuoridorBoard(tuple(canonicalBoard), 1), temp=temp)
             pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
             
-            if episodeStep > 5:
+            if episodeStep > 150:
+                action = self.game.getBestMove(canonicalBoard, 1)
+                pi = [0]*(81+64+64)
+                pi[action] = 1 
+            elif episodeStep > 5:
                 action = np.random.choice(len(pi), p=pi)
             else:
                 action = pi.index(max(pi))
@@ -107,8 +110,7 @@ class Coach():
 #                 print("Current player: ",self.curPlayer)
 #                 print("Winner: ",r)
                 return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
-            
-
+    
     def learn(self):
         """
         Performs numIters iterations with numEps episodes of self-play in each
@@ -156,7 +158,7 @@ class Coach():
 
             log.info('PITTING AGAINST PREVIOUS VERSION')
             arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
-                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game)
+                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, self.game.displayBoard)
             pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
 
             log.info('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))

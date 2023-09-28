@@ -4,7 +4,6 @@ from tqdm import tqdm
 
 log = logging.getLogger(__name__)
 
-
 class Arena():
     """
     An Arena class where any 2 agents can be pit against each other.
@@ -70,6 +69,54 @@ class Arena():
             print("Game over: Turn ", str(it), "Result ", str(self.game.getGameEnded(board, 1)))
             self.display(board)
         return curPlayer * self.game.getGameEnded(board, curPlayer)
+    
+    def playTestingGame(self, verbose=False):
+        """
+        Executes one episode of a game.
+
+        Returns:
+            either
+                winner: player who won the game (1 if player1, -1 if player2)
+        """
+        players = [self.player2, None, self.player1]
+        curPlayer = 1
+        board = self.game.getInitBoard()
+        it = 0
+        while self.game.getGameEnded(board, curPlayer) == 0:
+            it += 1
+            if verbose:
+                assert self.display
+                print("Turn ", str(it), "| Player ", str(curPlayer))
+                self.display(board)
+                
+            if it <= 150:
+                action = players[curPlayer + 1](self.game.getCanonicalForm(board, curPlayer))
+
+                valids = self.game.getValidMoves(self.game.getCanonicalForm(board, curPlayer), 1)
+
+                if valids[action] == 0:
+                    log.error(f'Action {action} is not valid!')
+                    log.debug(f'valids = {valids}')
+                    assert valids[action] > 0
+
+                if curPlayer == -1:                       # Added this to work aroud asymtery but maybe better way?
+                    if action <= 80:
+                        action = action + 8 - 2*(action % 9)
+                    else:
+                        n = action - 81
+                        n = n + 7 - 2*(n % 8)
+                        action = n + 81
+            
+            else:
+                action = self.game.getBestMove(self.game.getCanonicalForm(board, curPlayer), 1)
+                    
+            board, curPlayer = self.game.getNextState(board, curPlayer, action)
+        if verbose:
+            assert self.display
+            print("Game over: Turn ", str(it), "Result ", str(self.game.getGameEnded(board, 1)))
+            self.display(board)
+        return curPlayer * self.game.getGameEnded(board, curPlayer)
+    
 
     def playGames(self, num, verbose=False):
         """
@@ -86,19 +133,24 @@ class Arena():
         oneWon = 0
         twoWon = 0
         draws = 0
+        
         for _ in tqdm(range(num), desc="Arena.playGames (1)"):
-            gameResult = self.playGame(verbose=verbose)
+            if _ == 1:
+                verbose = True
+            else: 
+                verbose = False
+            gameResult = self.playTestingGame(verbose=verbose)
             if gameResult == 1:
                 oneWon += 1
             elif gameResult == -1:
                 twoWon += 1
             else:
                 draws += 1
-
+   
         self.player1, self.player2 = self.player2, self.player1
 
         for _ in tqdm(range(num), desc="Arena.playGames (2)"):
-            gameResult = self.playGame(verbose=verbose)
+            gameResult = self.playTestingGame(verbose=verbose)
             if gameResult == -1:
                 oneWon += 1
             elif gameResult == 1:

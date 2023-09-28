@@ -64,6 +64,8 @@ class NNetWrapper(NeuralNet):
         examples: list of examples, each example is of form (board, pi, v)
         """
         optimizer = optim.Adam(self.nnet.parameters(), lr=args.lr)
+        batch_count = int(len(examples) / args.batch_size)
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.01, steps_per_epoch=batch_count, epochs=args.epochs)
 
         for epoch in range(args.epochs):
             print('EPOCH ::: ' + str(epoch + 1))
@@ -101,6 +103,7 @@ class NNetWrapper(NeuralNet):
                 optimizer.zero_grad()
                 total_loss.backward()
                 optimizer.step()
+                scheduler.step()
 
     def predict(self, board):
         """
